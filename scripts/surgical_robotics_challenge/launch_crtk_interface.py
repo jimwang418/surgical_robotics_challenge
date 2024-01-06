@@ -41,7 +41,6 @@
 # */
 # //==============================================================================
 import rospy
-from ambf_client import Client
 import psm_arm
 import ecm_arm
 import scene
@@ -51,43 +50,9 @@ from sensor_msgs.msg import JointState
 from geometry_msgs.msg import PoseStamped, Pose, TwistStamped
 from PyKDL import Rotation, Vector, Frame
 from argparse import ArgumentParser
-from surgical_robotics_challenge.utils.utilities import get_boolean_from_opt
+from surgical_robotics_challenge.utils.utilities import *
+from simulation_manager import SimulationManager
 from enum import Enum
-
-
-def rot_mat_to_quat(cp):
-    R = Rotation(cp[0, 0], cp[0, 1], cp[0, 2],
-                 cp[1, 0], cp[1, 1], cp[1, 2],
-                 cp[2, 0], cp[2, 1], cp[2, 2])
-
-    return R.GetQuaternion()
-
-
-def np_mat_to_pose(cp):
-    pose = Pose()
-    pose.position.x = cp[0, 3]
-    pose.position.y = cp[1, 3]
-    pose.position.z = cp[2, 3]
-
-    Quat = rot_mat_to_quat(cp)
-
-    pose.orientation.x = Quat[0]
-    pose.orientation.y = Quat[1]
-    pose.orientation.z = Quat[2]
-    pose.orientation.w = Quat[3]
-    return pose
-
-
-def pose_to_frame(cp):
-    frame = Frame()
-    frame.p = Vector(cp.position.x,
-                     cp.position.y,
-                     cp.position.z)
-    frame.M = Rotation.Quaternion(cp.orientation.x,
-                                  cp.orientation.y,
-                                  cp.orientation.z,
-                                  cp.orientation.w)
-    return frame
 
 
 class Options:
@@ -122,11 +87,17 @@ class PSMCRTKWrapper:
         self.servo_jp_sub = rospy.Subscriber(namespace + '/' + name + '/' + 'servo_jp', JointState,
                                              self.servo_jp_cb, queue_size=1)
 
+        self.servo_jp_sub = rospy.Subscriber(namespace + '/' + name + '/' + 'move_jp', JointState,
+                                             self.move_jp_cb, queue_size=1)
+
         self.servo_jv_sub = rospy.Subscriber(namespace + '/' + name + '/' + 'servo_jv', JointState,
                                              self.servo_jv_cb, queue_size=1)
 
         self.servo_cp_sub = rospy.Subscriber(namespace + '/' + name + '/' + 'servo_cp', PoseStamped,
                                              self.servo_cp_cb, queue_size=1)
+
+        self.servo_cp_sub = rospy.Subscriber(namespace + '/' + name + '/' + 'move_cp', PoseStamped,
+                                             self.move_cp_cb, queue_size=1)
 
         self.servo_jaw_jp_sub = rospy.Subscriber(namespace + '/' + name + '/jaw/' + 'servo_jp', JointState,
                                                  self.servo_jaw_jp_cb, queue_size=1)
@@ -144,8 +115,15 @@ class PSMCRTKWrapper:
         frame = pose_to_frame(cp.pose)
         self.arm.servo_cp(frame)
 
+    def move_cp_cb(self, cp):
+        frame = pose_to_frame(cp.pose)
+        self.arm.move_cp(frame)
+
     def servo_jp_cb(self, js):
         self.arm.servo_jp(js.position)
+
+    def move_jp_cb(self, js):
+        self.arm.move_jp(js.position)
 
     def servo_jv_cb(self, js):
         self.arm.servo_jv(js.velocity)
@@ -249,9 +227,9 @@ class SceneObjectType(Enum):
 
 
 class SceneCRTKWrapper:
-    def __init__(self, client, namespace):
+    def __init__(self, simulation_manager, namespace):
         self.namespace = namespace
-        self.scene = scene.Scene(client)
+        self.scene = scene.Scene(simulation_manager)
         self._scene_object_pubs = dict()
         self._scene_object_pubs[SceneObjectType.Needle] = [None, self.scene.needle_measured_cp, PoseStamped()]
         self._scene_object_pubs[SceneObjectType.Entry1] = [None, self.scene.entry1_measured_cp, PoseStamped()]
@@ -280,29 +258,28 @@ class SceneCRTKWrapper:
 
 class SceneManager:
     def __init__(self, options):
-        self.client = Client("ambf_surgical_sim_crtk_node")
-        self.client.connect()
+        self.simulation_manager = SimulationManager("ambf_surgical_sim_crtk_node")
         time.sleep(0.2)
         self._components = []
         if options.run_psm_one is True:
             print("Launching CRTK-ROS Interface for PSM1 ")
-            self.psm1 = PSMCRTKWrapper(self.client, 'psm1', options.namespace)
+            self.psm1 = PSMCRTKWrapper(self.simulation_manager, 'psm1', options.namespace)
             self._components.append(self.psm1)
         if options.run_psm_two is True:
             print("Launching CRTK-ROS Interface for PSM2 ")
-            self.psm2 = PSMCRTKWrapper(self.client, 'psm2', options.namespace)
+            self.psm2 = PSMCRTKWrapper(self.simulation_manager, 'psm2', options.namespace)
             self._components.append(self.psm2)
         if options.run_psm_three is True:
             print("Launching CRTK-ROS Interface for PSM3 ")
-            self.psm3 = PSMCRTKWrapper(self.client, 'psm3', options.namespace)
+            self.psm3 = PSMCRTKWrapper(self.simulation_manager, 'psm3', options.namespace)
             self._components.append(self.psm3)
         if options.run_ecm:
             print("Launching CRTK-ROS Interface for ECM ")
-            self.ecm = ECMCRTKWrapper(self.client, 'ecm', options.namespace)
+            self.ecm = ECMCRTKWrapper(self.simulation_manager, 'ecm', options.namespace)
             self._components.append(self.ecm)
         if options.run_scene:
             print("Launching CRTK-ROS Interface for Scene ")
-            self.scene = SceneCRTKWrapper(self.client, options.namespace)
+            self.scene = SceneCRTKWrapper(self.simulation_manager, options.namespace)
             self._components.append(self.scene)
 
         self._task_3_init_sub = rospy.Subscriber('/CRTK/scene/task_3_setup/init',
