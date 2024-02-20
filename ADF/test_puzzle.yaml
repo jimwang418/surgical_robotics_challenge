@@ -287,8 +287,8 @@ BODY AMBF_Text2:
       r: 0.3845
     transparency: 1.0
 BODY Cylinder:
-  name: Cylinder_001
-  mesh: Cylinder_001.STL
+  name: Cylinder
+  mesh: Cylinder.STL
   mass: 1.0
   collision margin: 0.001
   scale: 1.0
