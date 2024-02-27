@@ -1,0 +1,29 @@
+# AMBF CRTK configuration file template 
+# Author: Hisashi Ishida
+# Date: 01.10.2024
+
+# Interfaces used for this plugin
+interface:
+- /ambf/env/psm2
+
+# For Interface "/ambf/env"
+/ambf/env/psm2:
+  measured_js:
+    # Name of Rigidbody in AMBF 
+    joints:
+    - base link-yaw link
+    - yaw link-pitch back link
+    - pitch end link-main insertion link
+    - main insertion link-tool roll link
+    - tool roll link-tool pitch link
+    - tool pitch link-tool yaw link
+
+  servo_jp:
+    # Name of joints in AMBF
+    joints:
+    - base link-yaw link
+    - yaw link-pitch back link
+    - pitch end link-main insertion link
+    - main insertion link-tool roll link
+    - tool roll link-tool pitch link
+    - tool pitch link-tool yaw link
