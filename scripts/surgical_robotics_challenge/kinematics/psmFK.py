@@ -67,7 +67,7 @@ class PSMKinematicData:
     def __init__(self):
         self.num_links = 7
 
-        self.L_rcc = 0.4389  # From dVRK documentation x 10
+        self.L_rcc = 0.4318  # From dVRK documentation x 10
         self.L_tool = 0.416  # From dVRK documentation x 10
         self.L_pitch2yaw = 0.009  # Fixed length from the palm joint to the pinch joint
         self.L_yaw2ctrlpnt = 0.0  # Fixed length from the pinch joint to the pinch tip
@@ -121,9 +121,9 @@ def compute_FK(joint_pos, up_to_link):
     return T_N_0
 
 
-T_7_0 = compute_FK([-0.5, 0, 0.2, 0, 0, 0],6)
+# T_7_0 = compute_FK([-0.5, 0, 0.2, 0, 0, 0],6)
 
-print(T_7_0)
-print("\n AFTER ROUNDING \n")
-print(round_mat(T_7_0, 4, 4, 3))
-print(round_mat(T_7_0, 4, 4, 3))
+# print(T_7_0)
+# print("\n AFTER ROUNDING \n")
+# print(round_mat(T_7_0, 4, 4, 3))
+# print(round_mat(T_7_0, 4, 4, 3))
