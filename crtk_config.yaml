@@ -9,7 +9,6 @@ interface:
 # For Interface "/ambf/env"
 /ambf/env/psm2:
   measured_js:
-    # Name of Rigidbody in AMBF 
     joints:
     - base link-yaw link
     - yaw link-pitch back link
@@ -17,6 +16,8 @@ interface:
     - main insertion link-tool roll link
     - tool roll link-tool pitch link
     - tool pitch link-tool yaw link
+    - tool yaw link-tool gripper1 link
+    - tool yaw link-tool gripper2 link
 
   servo_jp:
     # Name of joints in AMBF
@@ -27,3 +28,5 @@ interface:
     - main insertion link-tool roll link
     - tool roll link-tool pitch link
     - tool pitch link-tool yaw link
+    - tool yaw link-tool gripper1 link
+    - tool yaw link-tool gripper2 link
