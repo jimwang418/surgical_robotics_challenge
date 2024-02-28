@@ -93,8 +93,8 @@ class dvrk_teleoperation_ambf:
         self.align_master = True
         self.scale = 0.2
         self.jaw_ignore = False
-        self.jaw_rate = 2 * math.pi / 180
-        self.jaw_rate_back_from_clutch = 0.2 * math.pi / 180
+        self.jaw_rate = 4 * math.pi
+        self.jaw_rate_back_from_clutch = 0.2 * math.pi
         self.gripper_max = 60 * math.pi / 180
         self.gripper_zero = 0
         self.jaw_min = -20 * math.pi / 180
@@ -313,22 +313,48 @@ class dvrk_teleoperation_ambf:
         # cameraframe_obj.set_pos(T_w_c.pose.position.x, T_w_c.pose.position.y, T_w_c.pose.position.z)
         # cameraframe_obj.set_rot([T_w_c.pose.orientation.x, T_w_c.pose.orientation.y, T_w_c.pose.orientation.z, T_w_c.pose.orientation.w])
         T_w_psmbase = crtk.msg_conversions.FrameToPoseMsg(
-            T_w_c_frame * y_pi * self.T_psmbase_c)
+            T_w_c_frame * y_pi * self.T_psmbase_c.Inverse())
         psmbase_obj.set_pos(T_w_psmbase.position.x, T_w_psmbase.position.y, T_w_psmbase.position.z)
         psmbase_obj.set_rot([T_w_psmbase.orientation.x, T_w_psmbase.orientation.y, T_w_psmbase.orientation.z, T_w_psmbase.orientation.w])
-        mat = compute_FK(psm_js.position, 6)
-        self.puppet_virtual_servo_cp = PyKDL.Frame(PyKDL.Rotation(mat[0,0],mat[0,1],mat[0,2],mat[1,0],mat[1,1],mat[1,2],mat[2,0],mat[2,1],mat[2,2]),PyKDL.Vector(mat[0,3],mat[1,3],mat[2,3]))
+        fk_mat = compute_FK(psm_js.position, 6)
+        self.puppet_virtual_servo_cp = PyKDL.Frame(PyKDL.Rotation(fk_mat[0,0],fk_mat[0,1],fk_mat[0,2],fk_mat[1,0],fk_mat[1,1],fk_mat[1,2],fk_mat[2,0],fk_mat[2,1],fk_mat[2,2]),
+                                                   PyKDL.Vector(fk_mat[0,3],fk_mat[1,3],fk_mat[2,3]))
         self.puppet_virtual.servo_cp(self.puppet_virtual_servo_cp)
         self.puppet_virtual.jaw.servo_jp(psm_jaw_js.position)
 
     def run_all_states(self):
-        self.master_measured_cp = self.master.measured_cp(age=0.1)
+        try:
+            master_measured_cp = self.master.measured_cp()
+            self.master_measured_cp = master_measured_cp
+        except RuntimeWarning as w:
+            print(w)
+
         if self.master_use_measured_cv:
-            self.master_measured_cv = self.master.measured_cv(age=0.1)
-        self.master_setpoint_cp = self.master.setpoint_cp(age=0.1)
-        self.puppet_setpoint_cp = self.puppet.setpoint_cp(age=0.1)
-        self.puppet_virtual_setpoint_cp = self.puppet_virtual.setpoint_cp(age=0.5)
-        # TODO: add base frame (?) and check data validity
+            try:
+                master_measured_cv = self.master.measured_cv()
+                self.master_measured_cv = master_measured_cv
+            except RuntimeWarning as w:
+                print(w)
+
+        try:
+            master_setpoint_cp = self.master.setpoint_cp()
+            self.master_setpoint_cp = master_setpoint_cp
+        except RuntimeWarning as w:
+            print(w)
+        
+        try:
+            puppet_setpoint_cp = self.puppet.setpoint_cp()
+            self.puppet_setpoint_cp = puppet_setpoint_cp
+        except RuntimeWarning as w:
+            print(w)
+
+        try:
+            puppet_virtual_setpoint_cp = self.puppet_virtual.setpoint_cp()
+            self.puppet_virtual_setpoint_cp = puppet_virtual_setpoint_cp
+        except RuntimeWarning as w:
+            print(w)
+            
+        # TODO: add base frame (?)
 
         if self.desired_state == self.state.DISABLED and self.current_state != self.state.DISABLED:
             self.set_following(False)
@@ -415,7 +441,11 @@ class dvrk_teleoperation_ambf:
         if not self.operator_is_active:
             gripper_range = 0
             if callable(getattr(self.master.gripper, "measured_js", None)):
-                self.master_gripper_measured_js = self.master.gripper.measured_js(age=0.1)
+                try:
+                    master_gripper_measured_js = self.master.gripper.measured_js()
+                    self.master_gripper_measured_js = master_gripper_measured_js
+                except RuntimeWarning as w:
+                    print(w)
                 gripper = self.master_gripper_measured_js[0][0]
                 if gripper > self.operator_gripper_max:
                     self.operator_gripper_max = gripper
@@ -540,12 +570,16 @@ class dvrk_teleoperation_ambf:
                 # TODO: Add PSM base frame (?)
                 # TODO: Can't really add velocity to servo_cp?
 
-                # self.puppet.servo_cp(puppet_cartesian_goal)
-                self.puppet_virtual.servo_cp(puppet_cartesian_goal)
+                self.puppet.servo_cp(puppet_cartesian_goal)
+                self.puppet_virtual.servo_cp(self.T_psmbase_c * puppet_cartesian_goal)
                 
                 if not self.jaw_ignore:
                     if callable(getattr(self.master.gripper, "measured_js", None)):
-                        self.master_gripper_measured_js = self.master.gripper.measured_js(age=0.1)
+                        try:
+                            master_gripper_measured_js = self.master.gripper.measured_js()
+                            self.master_gripper_measured_js = master_gripper_measured_js
+                        except RuntimeWarning as w:
+                            print(w)
                         current_gripper = self.master_gripper_measured_js[0][0]
                         # see if we caught up
                         if not self.jaw_caught_up_after_clutch:
@@ -566,6 +600,7 @@ class dvrk_teleoperation_ambf:
                             self.gripper_ghost = self.jaw_to_gripper(self.gripper_to_jaw_position_min)
                         self.puppet.jaw.servo_jp(self.puppet_jaw_servo_jp)
                         self.puppet_virtual.jaw.servo_jp(self.puppet_jaw_servo_jp)
+                        # print(f"Jaw rate selected: {delta/self.expected_interval}")
                     else:
                         self.puppet_jaw_servo_jp[0] = 45 * math.pi / 180
                         self.puppet.jaw.servo_jp(self.puppet_jaw_servo_jp)
@@ -693,7 +728,7 @@ class dvrk_teleoperation_ambf:
         self.operator_is_active = False
 
     def run(self):
-        while self.running:
+        while not rospy.is_shutdown() and self.running:
             try:
                 if self.current_state == self.state.DISABLED:
                     self.transition_disabled()
@@ -872,7 +907,7 @@ if __name__ == '__main__':
                         help = 'ROS topic corresponding to clutch button/pedal input')
     parser.add_argument('-o', '--operator', type = str, default='/footpedals/coag',
                         help = 'ROS topic corresponding to operator present button/pedal/sensor input')
-    parser.add_argument('-i', '--interval', type=float, default=0.01,
+    parser.add_argument('-i', '--interval', type=float, default=0.005,
                         help = 'expected interval in seconds between messages sent by the device')
     args = parser.parse_args(argv)
 

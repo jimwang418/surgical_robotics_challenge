@@ -8,7 +8,7 @@ ambf_simulator --launch_file launch.yaml -l 3,4,16,22 --override_max_comm_freq 1
 To run the dVRK console:
 
 ```
-rosrun dvrk_robot dvrk_console_json -j console-SUJ-ECM-MTMR-PSM1-MTML-PSM2-Teleop.json -p 0.001
+rosrun dvrk_robot dvrk_console_json -j console-SUJ-ECM-MTMR-PSM1-MTML-PSM2-Teleop.json -p 0.005
 ```
 
 To start the camera:
