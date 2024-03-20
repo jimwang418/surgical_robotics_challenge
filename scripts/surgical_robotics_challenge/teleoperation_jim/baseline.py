@@ -2,7 +2,10 @@ import argparse
 import crtk
 import crtk_msgs.msg
 from dvrk_teleoperation_ambf import dvrk_teleoperation_ambf, mtm_teleop, psm_teleop, psm_ambf
+import math
+import PyKDL
 import std_msgs.msg
+import sys
 
 
 class baseline(dvrk_teleoperation_ambf):
@@ -12,14 +15,15 @@ class baseline(dvrk_teleoperation_ambf):
         self.comm_loss = False
         self.__comm_loss_sub = self.ral.subscriber('/communication_loss',
                                                    std_msgs.msg.Bool,
-                                                   self.__state_command_cb,
+                                                   self.__comm_loss_cb,
                                                    latch = True)
 
     def __comm_loss_cb(self, value):
         if value != None:
-            self.comm_loss = value
+            self.comm_loss = value.data
         self.operator_present(not self.comm_loss)
-        
+        self.operator_is_present = True
+    
 if __name__ == '__main__':
     # extract ros arguments (e.g. __ns:= for namespace)
     argv = crtk.ral.parse_argv(sys.argv[1:]) # skip argv[0], script name
